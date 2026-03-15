@@ -1,0 +1,34 @@
+name: Deploy to Firebase
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+      
+      - name: Install Functions deps
+        run: cd functions && npm install
+      
+      - name: Set API Keys
+        run: |
+          firebase functions:config:set \
+            cricapi.key="${{ secrets.CRICAPI_KEY }}" \
+            newsapi.key="${{ secrets.NEWSAPI_KEY }}"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      
+      - name: Deploy
+        run: firebase deploy --only hosting,functions,database
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

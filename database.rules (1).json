@@ -1,0 +1,7 @@
+{
+  "rules": {
+    "live_scores": {".read": true, ".write": "auth != null"},
+    "news": {".read": true, ".write": "auth != null"},
+    "admin": {".read": "auth != null", ".write": "auth != null"}
+  }
+}
