@@ -9,8 +9,8 @@ admin.initializeApp();
 const db = admin.database();
 const firestore = admin.firestore();
 
-const CRICAPI_KEY = functions.config().cricapi?.key || "";
-const NEWSAPI_KEY = functions.config().newsapi?.key || "";
+const CRICAPI_KEY = process.env.CRICAPI_KEY || "";
+const NEWSAPI_KEY = process.env.NEWSAPI_KEY || "";
 
 // ── Score Fetcher (every 1 min) ──
 exports.fetchScores = functions.region("asia-south1")
