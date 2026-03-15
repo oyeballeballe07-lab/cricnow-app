@@ -6,12 +6,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-comp
 
 // ⚠️ APNA FIREBASE CONFIG YAHAN DAALO
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBmq16jmf18cXbrDXaciVRKD0pn4DwQok8",
+  authDomain: "cricnow-app.firebaseapp.com",
+  projectId: "cricnow-app",
+  storageBucket: "cricnow-app.firebasestorage.app",
+  messagingSenderId: "56401395901",
+  appId: "1:56401395901:web:a8ba466fd17dc6d9bdb7d4"
 });
 
 const messaging = firebase.messaging();
