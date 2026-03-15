@@ -1,0 +1,12 @@
+{
+  "name": "cricnow-functions",
+  "description": "CricNow Cloud Functions",
+  "engines": {"node": "18"},
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^11.0.0",
+    "firebase-functions": "^4.0.0",
+    "axios": "^1.6.0"
+  },
+  "private": true
+}
