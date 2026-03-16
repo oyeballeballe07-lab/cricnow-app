@@ -1163,18 +1163,32 @@ try {
   console.log('✅ BroadcastChannel ready');
 } catch(e) { console.log('BroadcastChannel not supported'); }
 
-function broadcastMatchUpdate(){
-  // localStorage mein save karo — app poll karta rahega
+function broadcastMatchUpdate(){ broadcastAll(); }
+function broadcastAll(){
+  var payload = {
+    matches:      MATCHES,
+    news:         NEWS,
+    apikeys:      APIKEYS,
+    custom_ad:    load('custom_ad', null),
+    theme:        load('theme', 'day'),
+    primary_color:load('primary_color', '#1a9b6c'),
+    app_info:     load('app_info', {name:'CricNow',tag:'IPL 2025'}),
+    commentary:   load('commentary', null),
+    timestamp:    Date.now()
+  };
+  // Save to localStorage — app polls this
   try {
+    localStorage.setItem('cn_sync_all', JSON.stringify(payload));
+    // Keep old key for backward compat
     localStorage.setItem('cn_matches_updated', JSON.stringify({
-      matches: MATCHES,
-      timestamp: Date.now()
+      matches: MATCHES, timestamp: payload.timestamp
     }));
   } catch(e){}
-  // BroadcastChannel se bhi bhejo
+  // BroadcastChannel — instant update same browser
   if(_bc){
-    try { _bc.postMessage({ type: 'MATCHES_UPDATED', matches: MATCHES }); } catch(e){}
+    try { _bc.postMessage({ type: 'SYNC_ALL', data: payload }); } catch(e){}
   }
+  addLog('SYNC', 'Data broadcast: '+MATCHES.length+' matches, '+NEWS.length+' news');
 }
 
 var MATCHES = load('matches', [
@@ -1373,7 +1387,7 @@ function saveNews(){
 }
 function deleteNews(id){
   NEWS=NEWS.filter(function(n){return n.id!==id;});
-  store('news',NEWS);refreshNewsList();toast('Article deleted','ok');
+  store('news',NEWS);broadcastAll();refreshNewsList();toast('Article deleted','ok');
 }
 function fetchNews(){
   var key=APIKEYS['newsapi'];
@@ -1487,7 +1501,7 @@ function saveCustomAd(){
 function selectTheme(t,el){
   document.querySelectorAll('.theme-opt').forEach(function(x){x.classList.remove('active-theme');x.style.border='2px solid var(--border2)';});
   el.classList.add('active-theme');el.style.border='2px solid var(--primary)';
-  store('theme',t);addLog('THEME','Changed to '+t);toast('Theme set to '+t,'ok');
+  store('theme',t);broadcastAll();addLog('THEME','Changed to '+t);toast('Theme set to '+t,'ok');
 }
 function selectColor(c,el){
   document.querySelectorAll('.swatch').forEach(function(x){x.classList.remove('active');});
@@ -1497,7 +1511,7 @@ function selectColor(c,el){
 }
 function saveAppInfo(){
   var name=document.getElementById('app-name').value,tag=document.getElementById('app-tag').value;
-  store('app_info',{name:name,tag:tag});addLog('APP','App info updated');toast('App info saved!','ok');
+  store('app_info',{name:name,tag:tag});broadcastAll();addLog('APP','App info updated');toast('App info saved!','ok');
 }
 
 // ── COMMENTARY ──
@@ -1507,7 +1521,7 @@ function saveCommentary(){
     six_hg:document.getElementById('comm-six-hg').value,
     wkt_hi:document.getElementById('comm-wkt-hi').value,
     wkt_hg:document.getElementById('comm-wkt-hg').value,
-  });addLog('COMM','Commentary updated');toast('Commentary saved!','ok');
+  });broadcastAll();addLog('COMM','Commentary updated');toast('Commentary saved!','ok');
 }
 
 // ── PREDICTIONS ──
