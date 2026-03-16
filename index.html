@@ -883,6 +883,7 @@ div>
 <!-- NEWS -->
 <div class="screen" id="screen-news">
   <div class="page-title">Cricket News</div>
+  <div id="news-list-container"></div>
   <div class="news-card" onclick="showToast('Article opening...')"><div class="news-thumb">🏏</div><div class="news-body"><div class="news-title">Rohit fires 67 as MI post 187/4 vs CSK</div><div class="news-meta"><span class="news-tag">LIVE</span><span>2 hrs ago</span></div></div></div>
   <div class="news-card" onclick="showToast('Article opening...')"><div class="news-thumb">⚡</div><div class="news-body"><div class="news-title">Bumrah: 5 wickets in 3 matches, economy under 7</div><div class="news-meta"><span class="news-tag">TRENDING</span><span>4 hrs ago</span></div></div></div>
   <div class="news-card" onclick="showToast('Article opening...')"><div class="news-thumb">🌟</div><div class="news-body"><div class="news-title">Kohli century powers RCB over SRH — Match Report</div><div class="news-meta"><span class="news-tag">MATCH REPORT</span><span>Yesterday</span></div></div></div>
@@ -1417,22 +1418,6 @@ function catTab(el, cat){
 function renderMatchCards(cat){
   var container=$('match-cards-container');
   if(!container) return;
-  // Merge with any admin-added matches from localStorage
-  try {
-    var raw = localStorage.getItem('cn_matches_updated');
-    if(raw){
-      var d = JSON.parse(raw);
-      if(d && d.matches && d.matches.length){
-        // Admin ke matches ko ALL_MATCHES mein merge karo
-        var adminIds = d.matches.map(function(m){return m.id;});
-        // Remove old versions of same IDs
-        var base = ALL_MATCHES.filter(function(m){return adminIds.indexOf(m.id)<0;});
-        ALL_MATCHES = d.matches.concat(base.filter(function(m){
-          return d.matches.findIndex(function(x){return x.id===m.id;})<0;
-        }));
-      }
-    }
-  } catch(e){}
   var matches = ALL_MATCHES.filter(function(m){ return m.cat===cat; });
   if(!matches.length){ container.innerHTML='<div style="padding:40px 14px;text-align:center;color:var(--muted)">No matches found</div>'; return; }
 
@@ -2136,42 +2121,151 @@ function setTheme(t){
 // ════════════════════════════════════════
 
 
-// ═══════════════════════════════════════
-// ADMIN SYNC LISTENER
-// Admin se match add hone pe auto update
-// ═══════════════════════════════════════
-(function(){
+// ════════════════════════════════════════
+// ADMIN → APP SYNC (Simple & Reliable)
+// ════════════════════════════════════════
+
+function syncFromAdmin(){
   try {
-    var bc = new BroadcastChannel('cricnow_admin');
-    bc.onmessage = function(e){
-      if(e.data && e.data.type === 'MATCHES_UPDATED'){
-        ALL_MATCHES = e.data.matches;
-        window.ALL_MATCHES = e.data.matches;
-        e.data.matches.forEach(function(m){ MATCH_DATA[m.id]=m; });
-        renderMatchCards(window._curCat||'ipl');
-        showToast('✅ Admin se naya match aaya!');
-      }
-    };
-  } catch(e){}
-  // localStorage poll every 3s (fallback)
-  var _ls = 0;
-  setInterval(function(){
-    try {
-      var raw = localStorage.getItem('cn_matches_updated');
+    // Try full sync first (new format)
+    var raw = localStorage.getItem('cn_sync_all');
+    if(!raw){
+      // Fallback to matches-only sync
+      raw = localStorage.getItem('cn_matches_updated');
       if(!raw) return;
       var d = JSON.parse(raw);
-      if(d.timestamp > _ls){
-        _ls = d.timestamp;
-        // Update actual ALL_MATCHES variable
-        ALL_MATCHES = d.matches;
-        window.ALL_MATCHES = d.matches;
-        d.matches.forEach(function(m){ MATCH_DATA[m.id]=m; });
-        renderMatchCards(window._curCat||'ipl');
-        console.log('Admin sync: '+d.matches.length+' matches loaded');
-      }
-    } catch(e){}
-  }, 3000);
-})();
+      if(d && d.matches) applyMatches(d.matches);
+      return;
+    }
+    
+    var d = JSON.parse(raw);
+    if(!d) return;
+    
+    // ── Apply Matches ──
+    if(d.matches && d.matches.length) applyMatches(d.matches);
+    
+    // ── Apply News ──
+    if(d.news && d.news.length) applyNews(d.news);
+    
+    // ── Apply Theme ──
+    if(d.theme) applyTheme(d.theme);
+    
+    // ── Apply Primary Color ──
+    if(d.primary_color) applyColor(d.primary_color);
+    
+    // ── Apply App Info ──
+    if(d.app_info) applyAppInfo(d.app_info);
+    
+    // ── Apply Custom Ad ──
+    if(d.custom_ad) applyCustomAd(d.custom_ad);
+    
+    console.log('[Sync] Matches:'+
+      (d.matches?d.matches.length:0)+
+      ' News:'+(d.news?d.news.length:0)+
+      ' Theme:'+d.theme);
+      
+  } catch(e){ console.log('Sync error:', e); }
+}
+
+// ── Apply functions ──
+function applyMatches(matches){
+  ALL_MATCHES = matches;
+  matches.forEach(function(m){ if(m&&m.id) MATCH_DATA[m.id]=m; });
+  renderMatchCards(window._curCat || 'ipl');
+}
+
+function applyNews(articles){
+  window._adminNews = articles;
+  // Always update news container
+  renderNewsScreen(articles);
+}
+
+function applyTheme(t){
+  if(typeof setTheme === 'function') setTheme(t);
+}
+
+function applyColor(color){
+  document.documentElement.style.setProperty('--primary', color);
+  document.documentElement.style.setProperty('--primary-d', color);
+}
+
+function applyAppInfo(info){
+  if(!info) return;
+  var logo = document.querySelector('.logo');
+  if(logo && info.name) logo.textContent = info.name;
+  var logoSpan = document.querySelector('.logo span');
+  if(logoSpan && info.tag) logoSpan.textContent = info.tag;
+}
+
+function applyCustomAd(adData){
+  if(!adData || !adData.html) return;
+  var existing = document.getElementById('custom-ad-banner');
+  if(!existing){
+    existing = document.createElement('div');
+    existing.id = 'custom-ad-banner';
+    // Insert after topbar
+    var topbar = document.querySelector('.topbar');
+    if(topbar && topbar.nextSibling){
+      topbar.parentNode.insertBefore(existing, topbar.nextSibling);
+    }
+  }
+  existing.innerHTML = adData.html;
+}
+
+function renderNewsScreen(articles){
+  var list = document.getElementById('news-list-container');
+  if(!list) return;
+  list.innerHTML = articles.map(function(a){
+    var card = document.createElement('div');
+    card.className = 'news-card';
+    if(a.url) card.onclick = function(){ window.open(a.url,'_blank'); };
+    else card.onclick = function(){ showToast(a.title||''); };
+    card.innerHTML = '<div class="news-icon">'+(a.icon||'🏏')+'</div>'
+      +'<div class="news-body">'
+      +'<span class="news-tag">'+(a.tag||'NEWS')+'</span>'
+      +'<div class="news-title">'+(a.title||'')+'</div>'
+      +'<div class="news-meta">'+(a.source||'CricNow')+' · '+(a.time||'')+'</div>'
+      +'</div>';
+    return card.outerHTML;
+  }).join('');
+}
+
+// 1. Page load pe sync
+window.addEventListener('load', function(){
+  setTimeout(syncFromAdmin, 500);
+});
+
+// 2. Tab visible hone pe sync (user admin se wapas aata hai)
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible'){
+    syncFromAdmin();
+  }
+});
+
+// 3. Har 2 second mein sync
+setInterval(syncFromAdmin, 2000);
+
+// 4. BroadcastChannel (instant - same browser)
+try {
+  var _adminBC = new BroadcastChannel('cricnow_admin');
+  _adminBC.onmessage = function(e){
+    if(e.data && e.data.type === 'MATCHES_UPDATED'){
+      localStorage.setItem('cn_matches_updated', JSON.stringify({
+        matches: e.data.matches,
+        timestamp: Date.now()
+      }));
+      syncFromAdmin();
+      showToast('✅ Match update aaya admin se!');
+    }
+  };
+} catch(e){}
+
+// 5. Storage event (different tabs)
+window.addEventListener('storage', function(e){
+  if(e.key === 'cn_matches_updated'){
+    syncFromAdmin();
+  }
+});
 </script>
 
 <!-- ═══════════════════════════════════════════════
