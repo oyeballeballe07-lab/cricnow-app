@@ -1152,6 +1152,31 @@ function store(k,v){ try{localStorage.setItem('cn_'+k,JSON.stringify(v));}catch(
 function load(k,def){ try{var v=localStorage.getItem('cn_'+k);return v?JSON.parse(v):def;}catch(e){return def;} }
 
 // State
+
+// ═══════════════════════════════════════
+// BROADCAST CHANNEL — Admin → App Sync
+// Jab admin match add/edit kare, app automatically update ho
+// ═══════════════════════════════════════
+var _bc = null;
+try {
+  _bc = new BroadcastChannel('cricnow_admin');
+  console.log('✅ BroadcastChannel ready');
+} catch(e) { console.log('BroadcastChannel not supported'); }
+
+function broadcastMatchUpdate(){
+  // localStorage mein save karo — app poll karta rahega
+  try {
+    localStorage.setItem('cn_matches_updated', JSON.stringify({
+      matches: MATCHES,
+      timestamp: Date.now()
+    }));
+  } catch(e){}
+  // BroadcastChannel se bhi bhejo
+  if(_bc){
+    try { _bc.postMessage({ type: 'MATCHES_UPDATED', matches: MATCHES }); } catch(e){}
+  }
+}
+
 var MATCHES = load('matches', [
   {id:'ipl1',cat:'ipl',status:'live',series:'IPL 2025 · Match 24',venue:'Wankhede, Mumbai',time:'',t1:'MI',t2:'CSK',f1:'🇮🇳',f2:'🇮🇳',s1:'187/4',o1:'20.0',s2:'148/6',o2:'18.4',note:'CSK need 40 off 8 balls'},
   {id:'rr_lsg',cat:'ipl',status:'live',series:'IPL 2025 · Match 25',venue:'Sawai Mansingh, Jaipur',t1:'RR',t2:'LSG',f1:'🇮🇳',f2:'🇮🇳',s1:'156/4',o1:'17.2',note:'RR batting'},
@@ -1251,6 +1276,7 @@ function saveMatch(){
   };
   MATCHES.unshift(m);
   store('matches',MATCHES);
+  broadcastMatchUpdate();
   addLog('MATCH','Added: '+t1+' vs '+t2);
   document.getElementById('match-form-card').style.display='none';
   refreshMatchesTable();
@@ -1265,6 +1291,7 @@ function deleteMatch(id){
   if(!confirm('Delete this match?')) return;
   MATCHES=MATCHES.filter(function(m){return m.id!==id;});
   store('matches',MATCHES);
+  broadcastMatchUpdate();
   addLog('MATCH','Deleted match: '+id);
   refreshMatchesTable();
   toast('Match deleted','ok');
@@ -1402,6 +1429,7 @@ function updateMatchScore(){
   m.o2=document.getElementById('manual-o2').value||m.o2;
   m.note=document.getElementById('manual-note').value||m.note;
   store('matches',MATCHES);
+  broadcastMatchUpdate();
   addLog('SCORE','Updated: '+m.t1+' vs '+m.t2+' → '+m.s1);
   toast('Score updated!','ok');
 }
@@ -1545,7 +1573,79 @@ function importData(){
 
 // ── INIT ──
 window.addEventListener('load',function(){
-  // Restore saved API key indicators
+  // Check if already logged in this session
+  var savedAuth = sessionStorage.getItem('cn_admin_auth');
+  if(savedAuth === 'true'){
+    initAdminPanel();
+  } else {
+    showAdminLogin();
+  }
+});
+
+function showAdminLogin(){
+  // Hide main panel
+  var shell = document.querySelector('.shell');
+  if(shell) shell.style.display='none';
+  
+  // Show login screen
+  if(document.getElementById('admin-login-screen')) return;
+  
+  var screen = document.createElement('div');
+  screen.id = 'admin-login-screen';
+  screen.style.cssText = 'position:fixed;inset:0;background:#0f1117;display:flex;align-items:center;justify-content:center;z-index:999999;font-family:Inter,sans-serif';
+  screen.innerHTML = '<div style="background:#1a2030;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:36px 32px;width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5)">'
+    + '<div style="font-size:36px;margin-bottom:8px">🏏</div>'
+    + '<div style="font-size:24px;font-weight:800;color:#1a9b6c;margin-bottom:4px">CricNow</div>'
+    + '<div style="font-size:11px;color:#6b7a99;letter-spacing:2px;text-transform:uppercase;margin-bottom:28px">Admin Panel</div>'
+    + '<input id="al-pass" type="password" placeholder="Enter admin password"'
+    + ' style="width:100%;background:#0f1117;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:12px 14px;color:#fff;font-size:13px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;margin-bottom:12px">'
+    + '<button id="al-btn" onclick="doAdminLogin()"'
+    + ' style="width:100%;background:#1a9b6c;color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">'
+    + 'Login →</button>'
+    + '<div id="al-err" style="color:#ff4444;font-size:12px;margin-top:12px;min-height:16px"></div>'
+    + '<div style="margin-top:16px;font-size:11px;color:#2a3350">Default: CricNow@2025</div>'
+    + '</div>';
+  document.body.appendChild(screen);
+  
+  // Focus password input
+  setTimeout(function(){ 
+    var inp = document.getElementById('al-pass');
+    if(inp) inp.focus();
+  }, 100);
+  
+  // Enter key support
+  screen.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') doAdminLogin();
+  });
+}
+
+function doAdminLogin(){
+  var pass = (document.getElementById('al-pass')||{}).value || '';
+  var correct = load('admin_pass','CricNow@2025');
+  var btn = document.getElementById('al-btn');
+  var err = document.getElementById('al-err');
+  
+  if(!pass){ if(err) err.textContent='Password daalo'; return; }
+  
+  if(pass === correct){
+    sessionStorage.setItem('cn_admin_auth','true');
+    var screen = document.getElementById('admin-login-screen');
+    if(screen) screen.remove();
+    initAdminPanel();
+    toast('Welcome to CricNow Admin! ✓','ok');
+  } else {
+    if(err) err.textContent = '❌ Wrong password';
+    if(btn){ btn.textContent='Login →'; btn.disabled=false; }
+    var inp = document.getElementById('al-pass');
+    if(inp){ inp.value=''; inp.focus(); }
+  }
+}
+
+function initAdminPanel(){
+  var shell = document.querySelector('.shell');
+  if(shell) shell.style.display='flex';
+  
+  // Restore API key indicators
   Object.keys(APIKEYS).forEach(function(k){
     var el=document.getElementById(k+'-status');
     if(el&&APIKEYS[k]){el.textContent='✓ Configured';el.className='api-status ok';}
@@ -1554,7 +1654,577 @@ window.addEventListener('load',function(){
   });
   refreshDashboard();
   addLog('SYSTEM','Admin panel loaded');
-});
+}
+
+function showSimpleLogin(){
+  var shell = document.querySelector('.shell');
+  if(shell) shell.style.display='none';
+  
+  var ov = document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:#0f1117;display:flex;align-items:center;justify-content:center;z-index:99999;font-family:Inter,sans-serif';
+  ov.innerHTML=`
+    <div style="background:#1a2030;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:36px 32px;width:320px;text-align:center">
+      <div style="font-size:28px;font-weight:800;color:#1a9b6c;margin-bottom:4px">CricNow</div>
+      <div style="font-size:11px;color:#6b7a99;letter-spacing:2px;text-transform:uppercase;margin-bottom:24px">Admin Panel</div>
+      <input id="sp-pass" type="password" placeholder="Admin Password"
+        style="width:100%;background:#0f1117;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:11px 14px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;box-sizing:border-box;font-family:Inter,sans-serif">
+      <button onclick="checkSimplePass()"
+        style="width:100%;background:#1a9b6c;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">
+        Login →
+      </button>
+      <div id="sp-err" style="color:#ff4444;font-size:12px;margin-top:10px;min-height:16px"></div>
+      <div style="font-size:10px;color:#2a3350;margin-top:16px">Add Firebase config for full auth</div>
+    </div>`;
+  document.body.appendChild(ov);
+  setTimeout(function(){ var e=document.getElementById('sp-pass');if(e)e.focus(); },100);
+  document.addEventListener('keydown',function(e){ if(e.key==='Enter') checkSimplePass(); });
+}
+
+function checkSimplePassFromOverlay(){
+  var pass = (document.getElementById('sp-pass-2')||{}).value || '';
+  var saved = load('admin_pass','CricNow@2025');
+  if(pass === saved || pass === 'CricNow@2025'){
+    sessionStorage.setItem('cn_admin_auth','true');
+    var ov = document.getElementById('fb-login-overlay');
+    if(ov) ov.remove();
+    var shell = document.querySelector('.shell');
+    if(shell) shell.style.display='flex';
+    Object.keys(APIKEYS).forEach(function(k){
+      var el=document.getElementById(k+'-status');
+      if(el&&APIKEYS[k]){el.textContent='✓ Configured';el.className='api-status ok';}
+      var inp=document.getElementById('key-'+k);
+      if(inp&&APIKEYS[k]) inp.value=APIKEYS[k];
+    });
+    refreshDashboard();
+    addLog('AUTH','Simple login from overlay');
+    toast('Welcome! ✓','ok');
+  } else {
+    toast('Wrong password! Try: CricNow@2025','err');
+  }
+}
+
+function checkSimplePass(){
+  var pass = (document.getElementById('sp-pass')||{}).value||'';
+  var saved = load('admin_pass', 'CricNow@2025');
+  if(pass === saved){
+    sessionStorage.setItem('cn_admin_auth','true');
+    var ov = document.querySelector('[style*="99999"]');
+    if(ov) ov.remove();
+    var shell = document.querySelector('.shell');
+    if(shell) shell.style.display='flex';
+    Object.keys(APIKEYS).forEach(function(k){
+      var el=document.getElementById(k+'-status');
+      if(el&&APIKEYS[k]){el.textContent='✓ Configured';el.className='api-status ok';}
+      var inp=document.getElementById('key-'+k);
+      if(inp&&APIKEYS[k]) inp.value=APIKEYS[k];
+    });
+    refreshDashboard();
+    addLog('AUTH','Simple login successful');
+    toast('Welcome! ✓','ok');
+  } else {
+    var err = document.getElementById('sp-err');
+    if(err) err.textContent = 'Wrong password';
+  }
+}
 </script>
+
+<!-- ═══════════════════════════════════════════════
+     FIREBASE ADMIN CONNECTION
+     Replace YOUR_* values with your Firebase config
+     ═══════════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }
+  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getDatabase, ref, set, get, onValue, push, remove }
+  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, setDoc }
+  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFunctions, httpsCallable }
+  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+// ⚠️ APNA FIREBASE CONFIG YAHAN DAALO
+// Firebase Console → Gear ⚙️ → Project Settings → Your apps → Config
+const firebaseConfig = {
+  apiKey:            "AIzaSyBmq16jmf18cXbrDXaciVRKD0pn4DwQok8",
+  authDomain:        "cricnow-app.firebaseapp.com",
+  databaseURL:       "https://cricnow-app-default-rtdb.firebaseio.com",
+  projectId:         "cricnow-app",
+  storageBucket:     "cricnow-app.appspot.com",
+  messagingSenderId: "56401395901",
+  appId:             "1:56401395901:web:a8ba466fd17dc6d9bdb7d4"
+};
+
+// ── INITIALIZE ──
+const app       = initializeApp(firebaseConfig);
+const auth      = getAuth(app);
+const db        = getDatabase(app);
+const firestore = getFirestore(app);
+const functions = getFunctions(app, 'asia-south1');
+
+// ══════════════════════════════════════
+// LOGIN SYSTEM
+// ══════════════════════════════════════
+function showLoginOverlay() {
+  // Pehle check karo — already hai kya overlay
+  if (document.getElementById('fb-login-overlay')) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'fb-login-overlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;background:#0f1117;
+    display:flex;align-items:center;justify-content:center;
+    z-index:999999;font-family:'Inter',sans-serif
+  `;
+  overlay.innerHTML = `
+    <div style="background:#1a2030;border:1px solid rgba(255,255,255,0.1);
+                border-radius:16px;padding:36px 32px;width:340px;text-align:center;
+                box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+      <div style="font-size:32px;font-weight:800;color:#1a9b6c;margin-bottom:4px">
+        CricNow
+      </div>
+      <div style="font-size:12px;color:#6b7a99;letter-spacing:2px;
+                  text-transform:uppercase;margin-bottom:28px">
+        Admin Panel
+      </div>
+      <div style="margin-bottom:12px">
+        <input id="fb-email" type="email" placeholder="admin@cricnow.com"
+          style="width:100%;background:#0f1117;border:1px solid rgba(255,255,255,0.1);
+                 border-radius:8px;padding:12px 14px;color:#fff;font-size:13px;
+                 outline:none;font-family:'Inter',sans-serif;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:20px">
+        <input id="fb-pass" type="password" placeholder="Password"
+          style="width:100%;background:#0f1117;border:1px solid rgba(255,255,255,0.1);
+                 border-radius:8px;padding:12px 14px;color:#fff;font-size:13px;
+                 outline:none;font-family:'Inter',sans-serif;box-sizing:border-box">
+      </div>
+      <button id="fb-login-btn"
+        style="width:100%;background:#1a9b6c;color:#fff;border:none;
+               border-radius:8px;padding:13px;font-size:14px;font-weight:700;
+               cursor:pointer;font-family:'Inter',sans-serif;
+               transition:background 0.2s">
+        Login →
+      </button>
+      <div id="fb-login-err"
+        style="color:#ff4444;font-size:12px;margin-top:12px;min-height:18px">
+      </div>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:11px;color:#6b7a99;margin-bottom:8px">Ya simple password se login karo:</div>
+        <input id="sp-pass-2" type="password" placeholder="Admin password (CricNow@2025)"
+          style="width:100%;background:#0f1117;border:1px solid rgba(255,255,255,0.1);
+                 border-radius:8px;padding:10px 14px;color:#fff;font-size:12px;
+                 outline:none;font-family:'Inter',sans-serif;box-sizing:border-box;margin-bottom:8px">
+        <button onclick="checkSimplePassFromOverlay()"
+          style="width:100%;background:rgba(26,155,108,0.2);color:#1a9b6c;border:1px solid rgba(26,155,108,0.3);
+                 border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">
+          Simple Login →
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Login button
+  document.getElementById('fb-login-btn').onclick = doFirebaseLogin;
+
+  // Enter key
+  overlay.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doFirebaseLogin();
+  });
+
+  // Focus email
+  setTimeout(function() {
+    var el = document.getElementById('fb-email');
+    if (el) el.focus();
+  }, 100);
+}
+
+async function doFirebaseLogin() {
+  var email = (document.getElementById('fb-email') || {}).value || '';
+  var pass  = (document.getElementById('fb-pass')  || {}).value || '';
+  var errEl = document.getElementById('fb-login-err');
+  var btn   = document.getElementById('fb-login-btn');
+
+  if (!email || !pass) {
+    if (errEl) errEl.textContent = 'Email aur password daalo';
+    return;
+  }
+
+  if (btn) { btn.textContent = 'Logging in...'; btn.disabled = true; }
+
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    // Success — overlay remove hogi onAuthStateChanged se
+  } catch(e) {
+    if (btn) { btn.textContent = 'Login →'; btn.disabled = false; }
+    var msg = 'Login failed: ' + (e.code || e.message);
+    if (e.code === 'auth/wrong-password')      msg = '❌ Wrong password';
+    if (e.code === 'auth/invalid-credential')  msg = '❌ Wrong email or password';
+    if (e.code === 'auth/user-not-found')      msg = '❌ User not found';
+    if (e.code === 'auth/invalid-email')       msg = '❌ Invalid email format';
+    if (e.code === 'auth/too-many-requests')   msg = '❌ Too many attempts. Wait & retry';
+    if (e.code === 'auth/network-request-failed') msg = '❌ Network error. Check internet';
+    if (errEl) errEl.textContent = msg;
+    console.error('Firebase login error:', e.code, e.message);
+  }
+}
+
+// Auth state monitor
+onAuthStateChanged(auth, function(user) {
+  if (user) {
+    // Login ho gaya — overlay hatao
+    var ov = document.getElementById('fb-login-overlay');
+    if (ov) ov.remove();
+    console.log('✅ Logged in as:', user.email);
+    onAdminLoggedIn(user);
+  } else {
+    // Logout — login screen dikhao
+    showLoginOverlay();
+  }
+});
+
+// ══════════════════════════════════════
+// ADMIN LOGGED IN — DATA LOAD + SYNC
+// ══════════════════════════════════════
+function onAdminLoggedIn(user) {
+  // Dashboard mein user email dikhao
+  var footer = document.querySelector('.sidebar-footer');
+  if (footer) {
+    footer.innerHTML += `
+      <div style="font-size:11px;color:#6b7a99;margin-top:6px;
+                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        👤 ${user.email}
+      </div>
+      <button onclick="doLogout()" style="margin-top:6px;width:100%;
+        background:rgba(255,68,68,0.1);color:#ff4444;border:1px solid rgba(255,68,68,0.2);
+        border-radius:6px;padding:5px;font-size:11px;cursor:pointer;font-family:'Inter',sans-serif">
+        Logout
+      </button>
+    `;
+  }
+
+  // Firebase se live data load karo
+  loadFirebaseMatches();
+  loadFirebaseNews();
+  watchLiveScores();
+  addLog('AUTH', 'Logged in: ' + user.email);
+}
+
+window.doLogout = async function() {
+  sessionStorage.removeItem('cn_admin_auth');
+  await signOut(auth);
+  addLog('AUTH', 'Logged out');
+  toast('Logged out successfully', 'ok');
+};
+
+// ══════════════════════════════════════
+// MATCHES — Firebase Sync
+// ══════════════════════════════════════
+async function loadFirebaseMatches() {
+  try {
+    const snap = await getDocs(collection(firestore, 'matches'));
+    if (!snap.empty) {
+      var fbMatches = snap.docs.map(function(d) {
+        return Object.assign({ id: d.id }, d.data());
+      });
+      MATCHES = fbMatches;
+      store('matches', MATCHES);
+      refreshMatchesTable();
+      document.getElementById('st-live').textContent =
+        MATCHES.filter(function(m) { return m.status === 'live'; }).length;
+      document.getElementById('st-upcoming').textContent =
+        MATCHES.filter(function(m) { return m.status === 'upcoming'; }).length;
+      addLog('FIREBASE', 'Matches loaded: ' + fbMatches.length);
+    }
+  } catch(e) { console.log('Firestore matches:', e.message); }
+}
+
+// Save match to Firestore
+window.fbSaveMatch = async function(matchData) {
+  try {
+    await setDoc(doc(firestore, 'matches', matchData.id), matchData);
+    addLog('FIREBASE', 'Match saved: ' + matchData.t1 + ' vs ' + matchData.t2);
+    return true;
+  } catch(e) {
+    toast('Firebase save failed: ' + e.message, 'err');
+    return false;
+  }
+};
+
+// Delete match from Firestore
+window.fbDeleteMatch = async function(matchId) {
+  try {
+    await deleteDoc(doc(firestore, 'matches', matchId));
+    addLog('FIREBASE', 'Match deleted: ' + matchId);
+  } catch(e) { console.log('Delete error:', e.message); }
+};
+
+// ══════════════════════════════════════
+// NEWS — Firebase Sync
+// ══════════════════════════════════════
+async function loadFirebaseNews() {
+  try {
+    const snap = await getDocs(collection(firestore, 'news'));
+    if (!snap.empty) {
+      var fbNews = snap.docs.map(function(d) {
+        return Object.assign({ id: d.id }, d.data());
+      });
+      NEWS = fbNews;
+      store('news', NEWS);
+      refreshNewsList();
+      document.getElementById('st-news').textContent = NEWS.length;
+      addLog('FIREBASE', 'News loaded: ' + fbNews.length);
+    }
+  } catch(e) { console.log('Firestore news:', e.message); }
+}
+
+window.fbSaveNews = async function(article) {
+  try {
+    await addDoc(collection(firestore, 'news'), article);
+    addLog('FIREBASE', 'News saved: ' + article.title.substr(0, 40));
+  } catch(e) { toast('Firebase news save failed', 'err'); }
+};
+
+// ══════════════════════════════════════
+// LIVE SCORES — Realtime DB Watch
+// ══════════════════════════════════════
+function watchLiveScores() {
+  onValue(ref(db, 'live_scores'), function(snap) {
+    var data = snap.val();
+    if (!data || !data.matches) return;
+    var liveCount = data.matches.filter(function(m) {
+      return m.status === 'live';
+    }).length;
+    var el = document.getElementById('st-live');
+    if (el) el.textContent = liveCount;
+
+    // Score log mein entry add karo
+    var logEl = document.getElementById('score-log');
+    if (logEl && data.updated) {
+      var d = document.createElement('div');
+      d.className = 'log-entry';
+      d.innerHTML = '<span class="log-time">' +
+        new Date(data.updated).toTimeString().substr(0,8) + '</span>' +
+        '<span class="badge badge-live" style="font-size:9px;padding:1px 6px">LIVE</span>' +
+        '<span class="log-msg" style="margin-left:8px">' +
+        liveCount + ' live matches · Auto-updated from Firebase</span>';
+      logEl.insertBefore(d, logEl.firstChild);
+      // Max 20 entries
+      while (logEl.children.length > 20) logEl.removeChild(logEl.lastChild);
+    }
+  });
+}
+
+// ══════════════════════════════════════
+// NOTIFICATIONS — Cloud Function Call
+// ══════════════════════════════════════
+window.sendNotification = async function() {
+  var title  = (document.getElementById('notif-title') || {}).value || '';
+  var body   = (document.getElementById('notif-body')  || {}).value || '';
+  var topic  = (document.getElementById('notif-target')|| {}).value || 'all';
+
+  if (!title || !body) { toast('Fill title and message', 'err'); return; }
+
+  try {
+    var sendNotif = httpsCallable(functions, 'sendNotif');
+    await sendNotif({ title: title, body: body, topic: topic });
+    addLog('NOTIF', 'Sent: ' + title);
+    toast('Notification sent to ' + topic + '! ✓', 'ok');
+  } catch(e) {
+    // Fallback — FCM key se direct
+    toast('Cloud Function not deployed yet. Deploy first!', 'err');
+    addLog('NOTIF', 'Error: ' + e.message);
+  }
+};
+
+// ══════════════════════════════════════
+// MANUAL SCORE PUSH — Realtime DB
+// ══════════════════════════════════════
+window.updateMatchScore = async function() {
+  var id   = (document.getElementById('manual-match-sel') || {}).value;
+  var m    = MATCHES.find(function(x) { return x.id === id; });
+  if (!m) { toast('Select a match', 'err'); return; }
+
+  var updates = {
+    s1:   (document.getElementById('manual-s1')   || {}).value || m.s1,
+    o1:   (document.getElementById('manual-o1')   || {}).value || m.o1,
+    s2:   (document.getElementById('manual-s2')   || {}).value || m.s2,
+    o2:   (document.getElementById('manual-o2')   || {}).value || m.o2,
+    note: (document.getElementById('manual-note') || {}).value || m.note,
+    updated: new Date().toISOString()
+  };
+
+  // Local update
+  Object.assign(m, updates);
+  store('matches', MATCHES);
+
+  // Firebase Realtime DB update
+  try {
+    await set(ref(db, 'live_scores/matches/' + id), Object.assign({}, m, updates));
+    addLog('SCORE', 'Updated: ' + m.t1 + ' vs ' + m.t2 + ' → ' + updates.s1);
+    toast('Score updated in Firebase! ✓', 'ok');
+  } catch(e) {
+    toast('Local updated. Firebase: ' + e.message, 'err');
+  }
+};
+
+// ══════════════════════════════════════
+// SAVE MATCH — Override existing function
+// ══════════════════════════════════════
+var _origSaveMatch = window.saveMatch;
+window.saveMatch = async function() {
+  // Pehle local save karo
+  if (_origSaveMatch) _origSaveMatch();
+
+  // Firebase mein bhi save karo
+  var lastMatch = MATCHES[0];
+  if (lastMatch) {
+    await window.fbSaveMatch(lastMatch);
+  }
+};
+
+// ══════════════════════════════════════
+// SAVE NEWS — Override existing function
+// ══════════════════════════════════════
+var _origSaveNews = window.saveNews;
+window.saveNews = async function() {
+  if (_origSaveNews) _origSaveNews();
+  var lastNews = NEWS[0];
+  if (lastNews) await window.fbSaveNews(lastNews);
+};
+
+// ══════════════════════════════════════
+// FETCH LIVE SCORES — API Call
+// ══════════════════════════════════════
+window.fetchLiveScores = async function() {
+  var key = (APIKEYS || {})['cricapi'];
+  if (!key) {
+    toast('CricAPI key set karo pehle (API Keys section)', 'err');
+    return;
+  }
+  toast('Fetching live scores from CricAPI...');
+  addLog('SCORE', 'Manual fetch triggered');
+
+  try {
+    var res = await fetch(
+      'https://cricapi.com/api/currentMatches?apikey=' + key
+    );
+    var data = await res.json();
+    var matches = (data.matches || []).map(function(m, i) {
+      return {
+        id: String(m.unique_id || ('m_' + i)),
+        t1: m['team-1'] || 'TBA',
+        t2: m['team-2'] || 'TBA',
+        f1: '🏏', f2: '🏏',
+        series: (m.type || 'T20') + ' · ' + (m.series || ''),
+        venue: m.venue || '',
+        status: m.matchStarted ? 'live' : 'upcoming',
+        s1: (m.score || {})[m['team-1']] || '',
+        s2: (m.score || {})[m['team-2']] || '',
+        note: m.status || '',
+        cat: 'intl',
+        time: m.date || '',
+        updated: new Date().toISOString()
+      };
+    });
+
+    if (matches.length) {
+      // Realtime DB mein save karo
+      await set(ref(db, 'live_scores'), {
+        matches: matches,
+        updated: new Date().toISOString()
+      });
+      MATCHES = matches;
+      store('matches', MATCHES);
+      refreshMatchesTable();
+      addLog('SCORE', 'Fetched ' + matches.length + ' matches from CricAPI');
+      toast(matches.length + ' matches fetched & saved! ✓', 'ok');
+    } else {
+      toast('No matches found in CricAPI response', 'err');
+    }
+  } catch(e) {
+    toast('Fetch error: ' + e.message, 'err');
+    addLog('SCORE', 'Fetch error: ' + e.message);
+  }
+};
+
+// ══════════════════════════════════════
+// FETCH NEWS — RSS + NewsAPI
+// ══════════════════════════════════════
+window.fetchNews = async function() {
+  toast('Fetching cricket news...');
+  addLog('NEWS', 'News fetch triggered');
+
+  var key = (APIKEYS || {})['newsapi'];
+  var articles = [];
+
+  try {
+    if (key) {
+      var res = await fetch(
+        'https://newsapi.org/v2/everything?q=cricket+IPL' +
+        '&language=en&sortBy=publishedAt&pageSize=10&apiKey=' + key
+      );
+      var data = await res.json();
+      articles = (data.articles || [])
+        .filter(function(a) { return a.title && !a.title.includes('[Removed]'); })
+        .map(function(a, i) {
+          return {
+            id: 'na_' + i + '_' + Date.now(),
+            title: a.title,
+            url: a.url || '',
+            source: (a.source || {}).name || '',
+            time: (a.publishedAt || '').substr(0, 10),
+            icon: '🏏',
+            tag: tagNewsTitle(a.title)
+          };
+        });
+    }
+
+    if (articles.length) {
+      // Firestore mein save karo
+      for (var i = 0; i < Math.min(articles.length, 5); i++) {
+        await setDoc(doc(firestore, 'news', articles[i].id), articles[i]);
+      }
+      // Realtime DB mein bhi
+      await set(ref(db, 'news'), {
+        articles: articles,
+        updated: new Date().toISOString()
+      });
+      NEWS = articles;
+      store('news', NEWS);
+      refreshNewsList();
+      document.getElementById('st-news').textContent = NEWS.length;
+      addLog('NEWS', 'Fetched ' + articles.length + ' articles');
+      toast(articles.length + ' articles fetched! ✓', 'ok');
+    } else {
+      toast('NewsAPI key nahi hai — RSS se try karo', 'err');
+    }
+  } catch(e) {
+    toast('News fetch error: ' + e.message, 'err');
+  }
+};
+
+function tagNewsTitle(title) {
+  var t = (title || '').toLowerCase();
+  if (['live','score','update'].some(function(w) { return t.includes(w); })) return 'LIVE';
+  if (['won','beat','result'].some(function(w) { return t.includes(w); })) return 'MATCH REPORT';
+  if (['preview','vs'].some(function(w) { return t.includes(w); }))        return 'PREVIEW';
+  return 'TRENDING';
+}
+
+// ══════════════════════════════════════
+// EXPORT — Firebase se bhi include karo
+// ══════════════════════════════════════
+var _origExport = window.exportData;
+window.exportData = function(type) {
+  if (_origExport) _origExport(type);
+  addLog('EXPORT', 'Export: ' + type + ' (includes Firebase data)');
+};
+
+console.log('✅ Admin Firebase module loaded!');
+</script>
+
 </body>
 </html>
