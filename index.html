@@ -429,6 +429,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 
 ::-webkit-scrollbar{width:2px}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* Lang menu hover */
+#lang-menu div:hover{background:var(--bg3);}
 </style>
 </head>
 <body>
@@ -436,19 +439,30 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 
 <!-- ══ TOPBAR ══ -->
 <div class="topbar">
-  <div class="logo">CricNow <span>IPL 2025</span></div>
-  <div class="lang-switcher">
-    <button class="lang-btn active" id="lb-hi" onclick="setLang('hi')">हिंदी</button>
-    <button class="lang-btn" id="lb-hg" onclick="setLang('hg')">Hinglish</button>
-    <button class="lang-btn" id="lb-en" onclick="setLang('en')">EN</button>
-  </div>
+  <div class="logo">CricNow</div>
+  <div style="flex:1"></div>
   <div class="theme-btns">
     <div class="td td-day active" id="td-day" onclick="setTheme(&quot;day&quot;)" title="Light"></div>
     <div class="td td-dark" id="td-dark" onclick="setTheme(&quot;dark&quot;)" title="Dark"></div>
-    <div class="td td-multi" id="td-multi" onclick="setTheme(&quot;multi&quot;)" title="Multi"></div>
   </div>
   <div class="topbar-icon notif-dot" onclick="showToast('🔔 Wicket alert!')">🔔</div>
-      <div class="topbar-icon" onclick="window.open('cricnow-admin.html','_blank')" title="Admin Panel" style="font-size:15px">⚙️</div>
+  <div class="topbar-icon" onclick="window.open('cricnow-admin.html','_blank')" title="Admin Panel" style="font-size:15px">⚙️</div>
+  <div style="position:relative">
+    <button id="lang-btn-main" onclick="toggleLangMenu()"
+      style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);
+             border-radius:20px;padding:4px 10px;color:#fff;font-size:11px;font-weight:700;
+             cursor:pointer;font-family:var(--font)">🌐 <span id="lang-label">हिंदी</span></button>
+    <div id="lang-menu" style="display:none;position:absolute;right:0;top:32px;
+         background:var(--card);border:1px solid var(--border2);border-radius:10px;
+         overflow:hidden;z-index:999;min-width:110px;box-shadow:0 4px 20px rgba(0,0,0,0.3)">
+      <div onclick="setLangNew('hi')" style="padding:10px 14px;font-size:13px;cursor:pointer;
+           border-bottom:1px solid var(--border)">🇮🇳 हिंदी</div>
+      <div onclick="setLangNew('hg')" style="padding:10px 14px;font-size:13px;cursor:pointer;
+           border-bottom:1px solid var(--border)">🌀 Hinglish</div>
+      <div onclick="setLangNew('en')" style="padding:10px 14px;font-size:13px;cursor:pointer">
+           🌐 English</div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ SCREENS ══ -->
@@ -471,29 +485,24 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
     </div>
 
     <!-- MAIN LIVE CARD -->
-    <div class="match-card" onclick="switchScreen('matches')">
+    <div class="match-card" onclick="openMatchFromHome('ipl1')">
       <div class="match-series">
         <span>Match 24 · Wankhede Stadium, Mumbai</span>
         <span class="badge badge-live">LIVE</span>
       </div>
-      <!-- Side by side layout -->
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;margin:8px 0">
-        <div style="display:flex;flex-direction:column;gap:3px">
-          <div style="display:flex;align-items:center;gap:5px">
-            <span class="team-flag">🇮🇳</span>
-            <span class="jersey-name jersey-MI" style="font-size:16px;letter-spacing:1px">MI</span>
-          </div>
-          <div style="font-family:var(--font-mono);font-size:20px;font-weight:700" id="h-mi-score">187/4</div>
-          <div style="font-size:10px;color:var(--muted)">(20.0 ov)</div>
+      <!-- Cricbuzz style rows -->
+      <div style="margin:6px 0">
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 0">
+          <span style="font-size:18px;width:24px;flex-shrink:0">🇮🇳</span>
+          <span class="jersey-name jersey-MI" style="font-size:15px;flex:1">MI</span>
+          <span style="font-family:var(--font-mono);font-size:17px;font-weight:700" id="h-mi-score">187/4</span>
+          <span style="font-size:10px;color:var(--muted);margin-left:4px">(20.0 ov)</span>
         </div>
-        <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted)">VS</div>
-        <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
-          <div style="display:flex;align-items:center;gap:5px">
-            <span class="jersey-name jersey-CSK" style="font-size:16px;letter-spacing:1px">CSK</span>
-            <span class="team-flag">🇮🇳</span>
-          </div>
-          <div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--primary)" id="h-csk-score">148/6</div>
-          <div style="font-size:10px;color:var(--muted)" id="h-csk-ov">(18.4 ov)</div>
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid var(--border)">
+          <span style="font-size:18px;width:24px;flex-shrink:0">🇮🇳</span>
+          <span class="jersey-name jersey-CSK" style="font-size:15px;flex:1">CSK</span>
+          <span style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--primary)" id="h-csk-score">148/6</span>
+          <span style="font-size:10px;color:var(--muted);margin-left:4px" id="h-csk-ov">(18.4 ov)</span>
         </div>
       </div>
       <div class="balls-row" id="h-balls">
@@ -559,7 +568,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
   </div>
   <div id="ht-upcoming" style="display:none">
     <div class="sec-head">Upcoming Matches</div>
-    <div class="upcoming-card" onclick="showToast('NZ vs SA — T20I 1st')">
+    <div class="upcoming-card" onclick="openMatchFromHome('nz_sa2')">
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:8px"><span>SUN, 15 MAR 2026</span><span>11:45 AM</span></div>
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:8px"><span style="font-size:20px">🇳🇿</span><span style="font-weight:700">New Zealand</span></div>
@@ -571,7 +580,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
   </div>
   <div id="ht-recent" style="display:none">
     <div class="sec-head">Recent Results</div>
-    <div class="match-card" onclick="showToast('Full scorecard!')">
+    <div class="match-card" onclick="openMatchFromHome('rcb_srh')">
       <div class="match-series"><span>Match 23 · IPL 2025</span><span class="badge badge-green">RESULT</span></div>
       <div class="match-teams">
         <div class="team-row"><span class="team-flag">🇮🇳</span><span class="team-abbr"><span class="jersey-name jersey-RCB" style="font-size:13px">RCB</span></span><span class="team-score">198/4</span><span class="team-overs">(20.0)</span></div>
@@ -953,7 +962,30 @@ div>
 <div id="anim-overlay"></div>
 <div class="toast" id="toast"></div>
 
-<script>// Global feature flags
+<script>
+// ── Language dropdown ──
+function toggleLangMenu(){
+  var m=document.getElementById('lang-menu');
+  if(m) m.style.display = m.style.display==='none'?'block':'none';
+}
+function setLangNew(l){
+  var m=document.getElementById('lang-menu');
+  if(m) m.style.display='none';
+  var labels={'hi':'हिंदी','hg':'Hinglish','en':'English'};
+  var lbl=document.getElementById('lang-label');
+  if(lbl) lbl.textContent=labels[l]||l;
+  if(typeof setLang==='function') setLang(l);
+}
+// Close lang menu when clicking outside
+document.addEventListener('click',function(e){
+  var btn=document.getElementById('lang-btn-main');
+  var menu=document.getElementById('lang-menu');
+  if(menu && btn && !btn.contains(e.target) && !menu.contains(e.target)){
+    menu.style.display='none';
+  }
+});
+
+// Global feature flags
 window._animEnabled = false;
 window._soundEnabled = false;
 window._commEnabled = false;
@@ -984,13 +1016,37 @@ function switchScreen(name){
   }
 }
 
+
+// Open match from ANY screen (home, upcoming, recent cards)
+function openMatchFromHome(id){
+  // Switch to matches screen first
+  switchScreen('matches');
+  // Wait for screen to render then open detail
+  setTimeout(function(){
+    var m = MATCH_DATA[id] || (window.ALL_MATCHES||[]).find(function(x){return x.id===id;});
+    if(!m){ showToast('Match not found!'); return; }
+    openMatch(id);
+  }, 150);
+}
+
 function homeTab(tabEl, t){
-  document.querySelectorAll('#screen-home .htab').forEach(function(x){
-    x.style.color='rgba(255,255,255,0.65)'; x.style.borderBottomColor='transparent';
+  // Deselect ALL tabs in home screen
+  var allTabs = document.querySelectorAll('#home-tabs .tab');
+  allTabs.forEach(function(x){
+    x.style.color = 'rgba(255,255,255,0.65)';
+    x.style.borderBottomColor = 'transparent';
+    x.classList.remove('active');
   });
-  if(tabEl){ tabEl.style.color='#fff'; tabEl.style.borderBottomColor='#fff'; }
+  // Select clicked tab
+  if(tabEl){
+    tabEl.style.color = '#fff';
+    tabEl.style.borderBottomColor = '#fff';
+    tabEl.classList.add('active');
+  }
+  // Show correct content, hide others
   ['live','upcoming','recent'].forEach(function(id){
-    var e=$('ht-'+id); if(e) e.style.display=(id===t)?'block':'none';
+    var e = document.getElementById('ht-'+id);
+    if(e) e.style.display = (id===t) ? 'block' : 'none';
   });
 }
 
@@ -1361,6 +1417,22 @@ function catTab(el, cat){
 function renderMatchCards(cat){
   var container=$('match-cards-container');
   if(!container) return;
+  // Merge with any admin-added matches from localStorage
+  try {
+    var raw = localStorage.getItem('cn_matches_updated');
+    if(raw){
+      var d = JSON.parse(raw);
+      if(d && d.matches && d.matches.length){
+        // Admin ke matches ko ALL_MATCHES mein merge karo
+        var adminIds = d.matches.map(function(m){return m.id;});
+        // Remove old versions of same IDs
+        var base = ALL_MATCHES.filter(function(m){return adminIds.indexOf(m.id)<0;});
+        ALL_MATCHES = d.matches.concat(base.filter(function(m){
+          return d.matches.findIndex(function(x){return x.id===m.id;})<0;
+        }));
+      }
+    }
+  } catch(e){}
   var matches = ALL_MATCHES.filter(function(m){ return m.cat===cat; });
   if(!matches.length){ container.innerHTML='<div style="padding:40px 14px;text-align:center;color:var(--muted)">No matches found</div>'; return; }
 
@@ -1386,54 +1458,60 @@ function renderMatchCards(cat){
 
 function _om(el){openMatch(el.getAttribute('data-mid'));}
 function matchCardHTML(m){
-  var badge='';
-  if(m.status==='live')        badge='<span class="badge badge-live">LIVE</span>';
-  else if(m.status==='result') badge='<span class="badge badge-green">RESULT</span>';
-  else                         badge='<span class="badge badge-primary">'+_catLabel(m.cat)+'</span>';
+  var badge = m.status==='live'
+    ? '<span class="badge badge-live">● LIVE</span>'
+    : m.status==='result'
+    ? '<span class="badge badge-green">RESULT</span>'
+    : '<span class="badge" style="background:rgba(79,195,247,0.12);color:var(--blue);border:1px solid rgba(79,195,247,0.2)">'+_catLabel(m.cat)+'</span>';
 
-  var iplTeams=['MI','CSK','RCB','KKR','DC','GT','SRH','LSG','RR','PBKS'];
-  var t1jersey=iplTeams.indexOf(m.t1)>=0;
-  var t2jersey=iplTeams.indexOf(m.t2)>=0;
-  var t1n=t1jersey?'<span class="jersey-name jersey-'+m.t1+'" style="font-size:13px;letter-spacing:0.5px">'+m.t1+'</span>':m.t1;
-  var t2n=t2jersey?'<span class="jersey-name jersey-'+m.t2+'" style="font-size:13px;letter-spacing:0.5px">'+m.t2+'</span>':m.t2;
+  var ipl = ['MI','CSK','RCB','KKR','DC','GT','SRH','LSG','RR','PBKS'];
+  var t1n = ipl.indexOf(m.t1)>=0
+    ? '<span class="jersey-name jersey-'+m.t1+'" style="font-size:13px">'+m.t1+'</span>'
+    : '<span style="font-size:13px;font-weight:600">'+m.t1+'</span>';
+  var t2n = ipl.indexOf(m.t2)>=0
+    ? '<span class="jersey-name jersey-'+m.t2+'" style="font-size:13px">'+m.t2+'</span>'
+    : '<span style="font-size:13px;font-weight:600">'+m.t2+'</span>';
 
-  var bat1=m.batting===m.t1||(!m.batting&&m.s1&&!m.s2);
-  var bat2=m.batting===m.t2;
-  var c1=bat1?'color:var(--primary);font-weight:700':'';
-  var c2=bat2?'color:var(--primary);font-weight:700':'';
-  var sc1=m.s1||'—', sc2=m.s2||'—';
-  var ov1=m.o1?'<span style="font-size:10px;color:var(--muted);margin-left:2px">('+m.o1+')</span>':'';
-  var ov2=m.o2?'<span style="font-size:10px;color:var(--muted);margin-left:2px">('+m.o2+')</span>':'';
+  var bat1 = m.batting===m.t1 || (!m.batting && m.s1 && !m.s2);
+  var bat2 = m.batting===m.t2 || (!m.batting && m.s1 && m.s2);
+  var c1 = bat1 ? 'color:var(--primary);font-weight:700' : 'color:var(--text)';
+  var c2 = bat2 ? 'color:var(--primary);font-weight:700' : 'color:var(--text)';
 
-  var statusLine=m.note?'<div class="ml-status '+(m.status==='live'?'live':m.status==='result'?'result':'upcoming')+'">'+m.note+'</div>':
-      m.time?'<div class="ml-status upcoming">'+m.time+' · '+m.venue+'</div>':
-      '<div class="ml-status upcoming">'+m.venue+'</div>';
+  var row1 = '<div style="display:flex;align-items:center;gap:6px;padding:4px 0">'
+    + '<span style="font-size:17px;width:22px;flex-shrink:0;line-height:1">'+m.f1+'</span>'
+    + '<span style="flex:1;'+c1+'">'+t1n+'</span>'
+    + (m.s1
+        ? '<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;'+c1+'">'+m.s1+'</span>'
+          + (m.o1 ? '<span style="font-size:10px;color:var(--muted);margin-left:4px;white-space:nowrap">('+m.o1+')</span>' : '')
+        : '<span style="color:var(--muted);font-size:13px">Yet to bat</span>')
+    + '</div>';
+
+  var row2 = '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid var(--border)">'
+    + '<span style="font-size:17px;width:22px;flex-shrink:0;line-height:1">'+m.f2+'</span>'
+    + '<span style="flex:1;'+c2+'">'+t2n+'</span>'
+    + (m.s2
+        ? '<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;'+c2+'">'+m.s2+'</span>'
+          + (m.o2 ? '<span style="font-size:10px;color:var(--muted);margin-left:4px;white-space:nowrap">('+m.o2+')</span>' : '')
+        : '<span style="color:var(--muted);font-size:13px">Yet to bat</span>')
+    + '</div>';
+
+  var statusLine = m.note
+    ? '<div style="font-size:11px;font-weight:600;padding:5px 0 2px;'
+      + (m.status==='live' ? 'color:var(--primary)' : m.status==='result' ? 'color:var(--green)' : 'color:var(--muted)')
+      + '">'+m.note+'</div>'
+    : m.time
+    ? '<div style="font-size:11px;color:var(--muted);padding:5px 0 2px">📅 '+m.time+'</div>'
+    : '<div style="font-size:11px;color:var(--muted);padding:5px 0 2px">📍 '+m.venue+'</div>';
 
   return '<div class="ml-card" data-mid="'+m.id+'" onclick="_om(this)">'
-    +'<div class="ml-top">'+badge+'<span class="ml-venue">'+m.series+'</span></div>'
-    // Side by side: T1 left | VS center | T2 right
-    +'<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;margin:6px 0">'
-    // Left team
-    +'<div style="display:flex;flex-direction:column;gap:2px">'
-    +'<div style="display:flex;align-items:center;gap:5px">'
-    +'<span style="font-size:15px;flex-shrink:0">'+m.f1+'</span>'
-    +'<span style="font-size:12px;font-weight:600;'+c1+'">'+t1n+'</span>'
-    +'</div>'
-    +(m.s1?'<div style="font-family:var(--font-mono);font-size:16px;font-weight:700;'+c1+'">'+sc1+ov1+'</div>':'<div style="font-size:13px;color:var(--muted)">—</div>')
-    +'</div>'
-    // VS center
-    +'<div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:0 4px">VS</div>'
-    // Right team
-    +'<div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end">'
-    +'<div style="display:flex;align-items:center;gap:5px">'
-    +'<span style="font-size:12px;font-weight:600;'+c2+'">'+t2n+'</span>'
-    +'<span style="font-size:15px;flex-shrink:0">'+m.f2+'</span>'
-    +'</div>'
-    +(m.s2?'<div style="font-family:var(--font-mono);font-size:16px;font-weight:700;text-align:right;'+c2+'">'+sc2+ov2+'</div>':'<div style="font-size:13px;color:var(--muted)">—</div>')
-    +'</div>'
-    +'</div>'
-    +statusLine
-    +'</div>';
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+    + badge
+    + '<span style="font-size:10px;color:var(--muted)">'+m.series+'</span>'
+    + '</div>'
+    + row1
+    + row2
+    + statusLine
+    + '</div>';
 }
 
 function _catLabel(cat){
@@ -1588,6 +1666,16 @@ function addNewMatch(){
   var newM={id:'m_'+Date.now(),cat:cat,status:status,series:series||'New Match',venue:venue,time:time,t1:t1,t2:t2,f1:'🏏',f2:'🏏',note:note};
   ALL_MATCHES.unshift(newM);
   MATCH_DATA[newM.id]=newM;
+  // Sync to main app window if open
+  if(window.opener && window.opener.ALL_MATCHES){
+    window.opener.ALL_MATCHES.unshift(newM);
+    window.opener.MATCH_DATA[newM.id]=newM;
+    if(window.opener.renderMatchCards) window.opener.renderMatchCards(window.opener._curCat||'ipl');
+  }
+  // Also update current window if app loaded in same tab
+  if(typeof window.ALL_MATCHES !== 'undefined'){
+    window.ALL_MATCHES.unshift(newM);
+  }
   ['af-t1','af-t2','af-series','af-venue','af-time','af-note'].forEach(function(id){var e=$(id);if(e)e.value='';});
   var f=$('add-match-form'); if(f) f.style.display='none';
   refreshAdminList();
@@ -2047,6 +2135,169 @@ function setTheme(t){
 // ANIMATION ENGINE
 // ════════════════════════════════════════
 
+
+// ═══════════════════════════════════════
+// ADMIN SYNC LISTENER
+// Admin se match add hone pe auto update
+// ═══════════════════════════════════════
+(function(){
+  try {
+    var bc = new BroadcastChannel('cricnow_admin');
+    bc.onmessage = function(e){
+      if(e.data && e.data.type === 'MATCHES_UPDATED'){
+        ALL_MATCHES = e.data.matches;
+        window.ALL_MATCHES = e.data.matches;
+        e.data.matches.forEach(function(m){ MATCH_DATA[m.id]=m; });
+        renderMatchCards(window._curCat||'ipl');
+        showToast('✅ Admin se naya match aaya!');
+      }
+    };
+  } catch(e){}
+  // localStorage poll every 3s (fallback)
+  var _ls = 0;
+  setInterval(function(){
+    try {
+      var raw = localStorage.getItem('cn_matches_updated');
+      if(!raw) return;
+      var d = JSON.parse(raw);
+      if(d.timestamp > _ls){
+        _ls = d.timestamp;
+        // Update actual ALL_MATCHES variable
+        ALL_MATCHES = d.matches;
+        window.ALL_MATCHES = d.matches;
+        d.matches.forEach(function(m){ MATCH_DATA[m.id]=m; });
+        renderMatchCards(window._curCat||'ipl');
+        console.log('Admin sync: '+d.matches.length+' matches loaded');
+      }
+    } catch(e){}
+  }, 3000);
+})();
 </script>
+
+<!-- ═══════════════════════════════════════════════
+     FIREBASE LIVE CONNECTION
+     Replace YOUR_* values with your Firebase config
+     From: Firebase Console → Project Settings → Your apps → Config
+     ═══════════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }
+  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, onValue }
+  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+// ⚠️ STEP 1: APNA FIREBASE CONFIG YAHAN DAALO
+// Firebase Console → Gear ⚙️ → Project Settings → Your apps → Config
+const firebaseConfig = {
+  apiKey:            "AIzaSyBmq16jmf18cXbrDXaciVRKD0pn4DwQok8",
+  authDomain:        "cricnow-app.firebaseapp.com",
+  databaseURL:       "https://cricnow-app-default-rtdb.firebaseio.com",
+  projectId:         "cricnow-app",
+  storageBucket:     "cricnow-app.appspot.com",
+  messagingSenderId: "56401395901",
+  appId:             "1:56401395901:web:a8ba466fd17dc6d9bdb7d4"
+};
+
+// Firebase initialize
+const app      = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+// ── LIVE SCORES — Real-time listener ──
+// Jab bhi Cloud Function scores update kare, ye instantly fire hota hai
+const scoresRef = ref(database, 'live_scores');
+onValue(scoresRef, (snapshot) => {
+  const data = snapshot.val();
+  if (!data || !data.matches) return;
+
+  console.log('🔄 Live scores updated:', data.matches.length, 'matches');
+
+  // App ka main match data update karo
+  window.ALL_MATCHES = data.matches;
+
+  // Current matches screen re-render karo
+  if (typeof renderMatchCards === 'function') {
+    renderMatchCards(window._curCat || 'ipl');
+  }
+
+  // Home screen live card update karo
+  const liveIPL = data.matches.find(function(m) {
+    return m.status === 'live' && m.cat === 'ipl';
+  });
+  if (liveIPL) {
+    var s1el = document.getElementById('h-mi-score');
+    var s2el = document.getElementById('h-csk-score');
+    if (s1el && liveIPL.s1) s1el.textContent = liveIPL.s1;
+    if (s2el && liveIPL.s2) s2el.textContent = liveIPL.s2;
+  }
+
+  // Win probability update
+  if (liveIPL && liveIPL.win_prob) {
+    var mi  = liveIPL.win_prob.t1 || 72;
+    var csk = liveIPL.win_prob.t2 || 28;
+    var wpa = document.getElementById('wpa');
+    var wpb = document.getElementById('wpb');
+    var wpat = document.getElementById('wpa-t');
+    var wpbt = document.getElementById('wpb-t');
+    if (wpa) wpa.style.width = mi + '%';
+    if (wpb) wpb.style.width = csk + '%';
+    if (wpat) wpat.textContent = 'MI ' + mi + '%';
+    if (wpbt) wpbt.textContent = 'CSK ' + csk + '%';
+  }
+});
+
+// ── NEWS — Real-time listener ──
+const newsRef = ref(database, 'news');
+onValue(newsRef, (snapshot) => {
+  const data = snapshot.val();
+  if (!data || !data.articles) return;
+  console.log('📰 News updated:', data.articles.length, 'articles');
+  // News globally available — news screen mein use hoga
+  window._firebaseNews = data.articles;
+});
+
+// Global access ke liye
+window._firebaseApp = app;
+window._firebaseDB  = database;
+window._firebaseConnected = true;
+
+console.log('✅ Firebase connected! Real-time updates active.');
+
+
+// ═══════════════════════════════════════
+// ADMIN SYNC LISTENER
+// Admin se match add/edit hone pe auto update
+// ═══════════════════════════════════════
+(function(){
+  // BroadcastChannel listener
+  try {
+    var bc = new BroadcastChannel('cricnow_admin');
+    bc.onmessage = function(e){
+      if(e.data && e.data.type === 'MATCHES_UPDATED' && e.data.matches){
+        window.ALL_MATCHES = e.data.matches;
+        e.data.matches.forEach(function(m){ MATCH_DATA[m.id] = m; });
+        renderMatchCards(window._curCat || 'ipl');
+        showToast('✅ Match list updated from Admin!');
+      }
+    };
+  } catch(e){}
+
+  // localStorage polling (fallback - every 3 seconds)
+  var _lastSync = 0;
+  setInterval(function(){
+    try {
+      var raw = localStorage.getItem('cn_matches_updated');
+      if(!raw) return;
+      var data = JSON.parse(raw);
+      if(data.timestamp > _lastSync && data.matches){
+        _lastSync = data.timestamp;
+        window.ALL_MATCHES = data.matches;
+        data.matches.forEach(function(m){ MATCH_DATA[m.id] = m; });
+        renderMatchCards(window._curCat || 'ipl');
+        console.log('Admin sync: matches updated', data.matches.length);
+      }
+    } catch(e){}
+  }, 3000);
+})();
+</script>
+
 </body>
 </html>
