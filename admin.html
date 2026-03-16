@@ -244,8 +244,48 @@ tr:hover td{background:rgba(255,255,255,0.02)}
   <button class="nav-item" onclick="showPage('export',this)"><span class="ni">💾</span>Export/Backup</button>
 
   <div class="sidebar-footer">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px"><span class="status-dot"></span>System Online</div>
-    <div style="font-size:10px;color:var(--dim)">CricNow v9.0 · Admin</div>
+    <!-- STATUS LIGHTS -->
+    <div style="margin-bottom:10px">
+      <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">System Status</div>
+      
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:11px;color:var(--muted)">Firebase Auth</span>
+        <span id="st-firebase" style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)">
+          <span id="st-firebase-dot" style="width:8px;height:8px;border-radius:50%;background:#444;display:inline-block"></span>
+          <span id="st-firebase-txt">Checking...</span>
+        </span>
+      </div>
+      
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:11px;color:var(--muted)">Realtime DB</span>
+        <span id="st-db" style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)">
+          <span id="st-db-dot" style="width:8px;height:8px;border-radius:50%;background:#444;display:inline-block"></span>
+          <span id="st-db-txt">Checking...</span>
+        </span>
+      </div>
+      
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:11px;color:var(--muted)">App Sync</span>
+        <span id="st-sync" style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)">
+          <span id="st-sync-dot" style="width:8px;height:8px;border-radius:50%;background:#444;display:inline-block"></span>
+          <span id="st-sync-txt">Waiting...</span>
+        </span>
+      </div>
+      
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:11px;color:var(--muted)">CricAPI</span>
+        <span id="st-api" style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)">
+          <span id="st-api-dot" style="width:8px;height:8px;border-radius:50%;background:#444;display:inline-block"></span>
+          <span id="st-api-txt">Not set</span>
+        </span>
+      </div>
+    </div>
+    
+    <!-- ERROR LOG -->
+    <div id="st-error-box" style="display:none;background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.3);border-radius:6px;padding:6px 8px;margin-bottom:8px;font-size:10px;color:#ff6b6b;line-height:1.4" id="st-error-box"></div>
+    
+    <div style="font-size:10px;color:var(--dim)">CricNow v9.0</div>
+    <button onclick="doLogout()" style="width:100%;margin-top:8px;background:rgba(255,68,68,0.1);color:#ff4444;border:1px solid rgba(255,68,68,0.2);border-radius:6px;padding:6px;font-size:11px;cursor:pointer;font-family:var(--font)">Logout</button>
   </div>
 </div>
 
@@ -843,6 +883,34 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div class="page-sub">Connect real-time data sources for live scores, news, and AI</div>
   </div>
 
+  <!-- Firebase Login Card -->
+  <div class="card" id="firebase-login-card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🔐 Firebase Auth Login</div>
+        <div class="card-sub">Firebase DB mein write karne ke liye login karo</div>
+      </div>
+      <div id="fb-auth-badge" style="background:rgba(255,68,68,0.12);color:#ff4444;border:1px solid rgba(255,68,68,0.25);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">NOT LOGGED IN</div>
+    </div>
+    <div id="fb-login-area">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Firebase Email</label>
+          <input id="fb-email-field" type="email" placeholder="admin@example.com">
+        </div>
+        <div class="form-group">
+          <label>Firebase Password</label>
+          <input id="fb-pass-field" type="password" placeholder="Firebase password">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn btn-primary" onclick="doFirebaseLogin()">🔐 Login to Firebase</button>
+        <button class="btn btn-secondary" onclick="doFirebaseLogout()">Logout</button>
+      </div>
+      <div id="fb-login-msg" style="font-size:12px;margin-top:10px;min-height:16px"></div>
+    </div>
+  </div>
+
   <div class="api-card">
     <div class="api-icon">🏏</div>
     <div class="api-info">
@@ -1163,6 +1231,27 @@ try {
   console.log('✅ BroadcastChannel ready');
 } catch(e) { console.log('BroadcastChannel not supported'); }
 
+function pushMatchesToDB(){
+  if(!window._firebaseDB || !window._firebaseSet || !window._firebaseRef){
+    setStatus('db','warn','Not init','Firebase DB init nahi hua');
+    return;
+  }
+  var payload = { matches: MATCHES, updated: new Date().toISOString() };
+  window._firebaseSet(window._firebaseRef(window._firebaseDB,'live_scores'), payload)
+    .then(function(){
+      setStatus('db','ok','Synced ✓');
+      setStatus('sync','ok','Just now');
+      addLog('FIREBASE','DB updated: '+MATCHES.length+' matches');
+    })
+    .catch(function(e){
+      var reason = e.code==='PERMISSION_DENIED'
+        ? 'DB Rules: auth required. Firebase Console → DB → Rules mein ".write":true karo'
+        : e.message;
+      setStatus('db','err','Write failed',reason);
+      addLog('ERROR','DB push: '+reason);
+    });
+}
+
 function broadcastMatchUpdate(){ broadcastAll(); }
 function broadcastAll(){
   var payload = {
@@ -1176,19 +1265,22 @@ function broadcastAll(){
     commentary:   load('commentary', null),
     timestamp:    Date.now()
   };
-  // Save to localStorage — app polls this
   try {
     localStorage.setItem('cn_sync_all', JSON.stringify(payload));
-    // Keep old key for backward compat
     localStorage.setItem('cn_matches_updated', JSON.stringify({
       matches: MATCHES, timestamp: payload.timestamp
     }));
-  } catch(e){}
-  // BroadcastChannel — instant update same browser
+    // Update App Sync status
+    setStatus('sync','ok','Just synced ✓');
+  } catch(e){
+    setStatus('sync','err','localStorage failed', e.message);
+  }
   if(_bc){
     try { _bc.postMessage({ type: 'SYNC_ALL', data: payload }); } catch(e){}
   }
   addLog('SYNC', 'Data broadcast: '+MATCHES.length+' matches, '+NEWS.length+' news');
+  // Also push to Firebase DB
+  pushMatchesToDB();
 }
 
 var MATCHES = load('matches', [
@@ -1411,6 +1503,76 @@ function refreshNewsList(){
 }
 
 // ── API KEYS ──
+function doFirebaseLogin(){
+  var email = (document.getElementById('fb-email-field')||{}).value||'';
+  var pass  = (document.getElementById('fb-pass-field')||{}).value||'';
+  var msg   = document.getElementById('fb-login-msg');
+  var badge = document.getElementById('fb-auth-badge');
+  if(!email||!pass){ if(msg) msg.textContent='Email aur password daalo'; return; }
+  if(msg) msg.textContent='Logging in...';
+  if(typeof window.firebaseSignIn==='function'){
+    window.firebaseSignIn(email,pass).then(function(ok){
+      if(ok){
+        if(badge){ badge.textContent='✓ LOGGED IN'; badge.style.background='rgba(0,200,83,0.12)'; badge.style.color='#00c853'; badge.style.borderColor='rgba(0,200,83,0.25)'; }
+        if(msg) msg.textContent='✅ Firebase login successful! Ab matches DB mein save honge.';
+        setStatus('firebase','ok',email.split('@')[0]+' ✓');
+        toast('Firebase login ✓','ok');
+      } else {
+        if(msg) msg.textContent='';
+      }
+    });
+  } else {
+    if(msg) msg.textContent='❌ Firebase not loaded. Page refresh karo.';
+  }
+}
+
+function doFirebaseLogout(){
+  if(window._firebaseAuth){
+    window._firebaseAuth.signOut().then(function(){
+      var badge = document.getElementById('fb-auth-badge');
+      if(badge){ badge.textContent='NOT LOGGED IN'; badge.style.background='rgba(255,68,68,0.12)'; badge.style.color='#ff4444'; badge.style.borderColor='rgba(255,68,68,0.25)'; }
+      setStatus('firebase','warn','Signed out');
+      toast('Firebase se logout hua','ok');
+    });
+  }
+}
+
+function doFirebaseLoginDash(){
+  var email = (document.getElementById('fb-email-dash')||{}).value||'';
+  var pass  = (document.getElementById('fb-pass-dash')||{}).value||'';
+  var msg   = document.getElementById('fb-dash-msg');
+  var badge = document.getElementById('fb-auth-badge2');
+  
+  if(!email||!pass){
+    if(msg) msg.textContent='❌ Email aur password daalo';
+    return;
+  }
+  if(msg) msg.style.color='var(--muted)';
+  if(msg) msg.textContent='🔄 Logging in...';
+  
+  if(typeof window.firebaseSignIn === 'function'){
+    window.firebaseSignIn(email, pass).then(function(ok){
+      if(ok){
+        // Update both badges
+        [badge, document.getElementById('fb-auth-badge')].forEach(function(b){
+          if(!b) return;
+          b.textContent='✓ LOGGED IN';
+          b.style.background='rgba(0,200,83,0.12)';
+          b.style.color='#00c853';
+          b.style.borderColor='rgba(0,200,83,0.25)';
+        });
+        if(msg){ msg.style.color='#00c853'; msg.textContent='✅ Firebase connected! Ab matches DB mein save honge.'; }
+        setStatus('firebase','ok', email.split('@')[0]+' ✓');
+        toast('🔥 Firebase login successful!','ok');
+        // Push existing matches to DB now
+        pushMatchesToDB();
+      }
+    });
+  } else {
+    if(msg) msg.textContent='❌ Firebase load nahi hua. Page refresh karo.';
+  }
+}
+
 function saveKey(name){
   var inp=document.getElementById('key-'+name);if(!inp)return;
   var val=inp.value.trim();
@@ -1587,71 +1749,125 @@ function importData(){
 
 // ── INIT ──
 window.addEventListener('load',function(){
-  // Check if already logged in this session
-  var savedAuth = sessionStorage.getItem('cn_admin_auth');
-  if(savedAuth === 'true'){
-    initAdminPanel();
-  } else {
-    showAdminLogin();
-  }
+  // Always show login screen first
+  // Firebase module will handle auth state
+  showAdminLogin();
 });
 
 function showAdminLogin(){
-  // Hide main panel
   var shell = document.querySelector('.shell');
   if(shell) shell.style.display='none';
-  
-  // Show login screen
   if(document.getElementById('admin-login-screen')) return;
-  
-  var screen = document.createElement('div');
-  screen.id = 'admin-login-screen';
-  screen.style.cssText = 'position:fixed;inset:0;background:#0f1117;display:flex;align-items:center;justify-content:center;z-index:999999;font-family:Inter,sans-serif';
-  screen.innerHTML = '<div style="background:#1a2030;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:36px 32px;width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5)">'
-    + '<div style="font-size:36px;margin-bottom:8px">🏏</div>'
-    + '<div style="font-size:24px;font-weight:800;color:#1a9b6c;margin-bottom:4px">CricNow</div>'
-    + '<div style="font-size:11px;color:#6b7a99;letter-spacing:2px;text-transform:uppercase;margin-bottom:28px">Admin Panel</div>'
-    + '<input id="al-pass" type="password" placeholder="Enter admin password"'
-    + ' style="width:100%;background:#0f1117;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:12px 14px;color:#fff;font-size:13px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;margin-bottom:12px">'
-    + '<button id="al-btn" onclick="doAdminLogin()"'
-    + ' style="width:100%;background:#1a9b6c;color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">'
-    + 'Login →</button>'
-    + '<div id="al-err" style="color:#ff4444;font-size:12px;margin-top:12px;min-height:16px"></div>'
-    + '<div style="margin-top:16px;font-size:11px;color:#2a3350">Default: CricNow@2025</div>'
-    + '</div>';
-  document.body.appendChild(screen);
-  
-  // Focus password input
-  setTimeout(function(){ 
-    var inp = document.getElementById('al-pass');
-    if(inp) inp.focus();
-  }, 100);
-  
-  // Enter key support
-  screen.addEventListener('keydown', function(e){
-    if(e.key === 'Enter') doAdminLogin();
-  });
+  var sc = document.createElement('div');
+  sc.id = 'admin-login-screen';
+  sc.style.cssText = 'position:fixed;inset:0;background:#0f1117;display:flex;align-items:center;justify-content:center;z-index:999999;font-family:Inter,sans-serif';
+  sc.innerHTML =
+    '<div style="background:#1a2030;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:40px 32px;width:320px;text-align:center">'
+   +'<div style="font-size:40px;margin-bottom:10px">🏏</div>'
+   +'<div style="font-size:22px;font-weight:800;color:#1a9b6c;margin-bottom:2px">CricNow</div>'
+   +'<div style="font-size:10px;color:#6b7a99;letter-spacing:2px;text-transform:uppercase;margin-bottom:28px">Admin Panel</div>'
+   +'<input id="al-pass" type="password" placeholder="Enter admin password" autocomplete="current-password"'
+   +' style="width:100%;background:#0f1117;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:12px 14px;color:#fff;font-size:14px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box;margin-bottom:12px">'
+   +'<button id="al-btn" onclick="doAdminLogin()"'
+   +' style="width:100%;background:#1a9b6c;color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;transition:opacity 0.2s">'
+   +'Login →</button>'
+   +'<div id="al-err" style="color:#ff4444;font-size:12px;margin-top:12px;min-height:16px"></div>'
+   +'</div>';
+  document.body.appendChild(sc);
+  setTimeout(function(){ var i=document.getElementById('al-pass'); if(i) i.focus(); },100);
+  sc.addEventListener('keydown', function(e){ if(e.key==='Enter') doAdminLogin(); });
 }
 
+
 function doAdminLogin(){
-  var pass = (document.getElementById('al-pass')||{}).value || '';
+  var pass = (document.getElementById('al-pass')||{}).value||'';
+  var btn  = document.getElementById('al-btn');
+  var err  = document.getElementById('al-err');
+  if(!pass){ if(err) err.textContent='Password daalo!'; return; }
+  if(btn){btn.textContent='...';btn.disabled=true;}
   var correct = load('admin_pass','CricNow@2025');
-  var btn = document.getElementById('al-btn');
-  var err = document.getElementById('al-err');
-  
-  if(!pass){ if(err) err.textContent='Password daalo'; return; }
-  
-  if(pass === correct){
-    sessionStorage.setItem('cn_admin_auth','true');
-    var screen = document.getElementById('admin-login-screen');
-    if(screen) screen.remove();
+  if(pass===correct){
+    var sc=document.getElementById('admin-login-screen');
+    if(sc) sc.remove();
     initAdminPanel();
-    toast('Welcome to CricNow Admin! ✓','ok');
+    toast('Welcome! Admin Panel khul gaya ✓','ok');
   } else {
-    if(err) err.textContent = '❌ Wrong password';
-    if(btn){ btn.textContent='Login →'; btn.disabled=false; }
-    var inp = document.getElementById('al-pass');
-    if(inp){ inp.value=''; inp.focus(); }
+    if(err) err.textContent='❌ Wrong password!';
+    if(btn){btn.textContent='Login →';btn.disabled=false;}
+    var i=document.getElementById('al-pass'); if(i){i.value='';i.focus();}
+  }
+}
+
+
+// ── STATUS LIGHTS ──
+function setStatus(id, state, msg, reason){
+  var dot = document.getElementById('st-'+id+'-dot');
+  var txt = document.getElementById('st-'+id+'-txt');
+  if(!dot||!txt) return;
+  var colors = {ok:'#00c853', err:'#ff4444', warn:'#ffd700', loading:'#4fc3f7', off:'#444'};
+  dot.style.background = colors[state]||colors.off;
+  dot.style.boxShadow = state==='ok'?'0 0 4px #00c85366':state==='err'?'0 0 4px #ff444466':'none';
+  txt.textContent = msg||state;
+  // Pulse animation for ok
+  dot.style.animation = state==='ok'?'pulse 2s infinite':'none';
+  // Show error reason
+  if(state==='err' && reason){
+    var eb = document.getElementById('st-error-box');
+    if(eb){
+      eb.style.display='block';
+      eb.innerHTML = '⚠️ '+id.toUpperCase()+': '+reason;
+    }
+    addLog('ERROR', id+': '+reason);
+  }
+}
+
+function checkAllStatus(){
+  // Firebase Auth status
+  if(window._firebaseUser){
+    setStatus('firebase','ok',window._firebaseUser.email.split('@')[0]);
+  } else {
+    setStatus('firebase','warn','Not logged in','Firebase Auth se login nahi kiya');
+  }
+  
+  // CricAPI key
+  var apiKey = (APIKEYS||{})['cricapi'];
+  if(apiKey && apiKey.length > 5){
+    setStatus('api','ok','Key set ✓');
+  } else {
+    setStatus('api','warn','Not set','API Keys section mein CricAPI key daalo');
+  }
+  
+  // App Sync - check localStorage
+  try {
+    var raw = localStorage.getItem('cn_sync_all')||localStorage.getItem('cn_matches_updated');
+    if(raw){
+      var d = JSON.parse(raw);
+      var ts = d.timestamp||0;
+      var ago = Math.round((Date.now()-ts)/1000);
+      var agoTxt = ago<60 ? ago+'s ago' : Math.round(ago/60)+'m ago';
+      var matchCount = (d.matches||[]).length;
+      if(ago < 60)  setStatus('sync','ok', matchCount+' matches · '+agoTxt);
+      else if(ago < 300) setStatus('sync','warn', matchCount+' matches · '+agoTxt);
+      else setStatus('sync','err', agoTxt, 'Purana data hai. Match add karke sync karo.');
+    } else {
+      setStatus('sync','warn','Waiting...','Match add karo - tab sync hoga');
+    }
+  } catch(e){ setStatus('sync','err','Error',e.message); }
+}
+
+function testDBConnection(){
+  setStatus('db','loading','Testing...');
+  if(!window._firebaseDB){
+    setStatus('db','err','Not init','Firebase config check karo');
+    return;
+  }
+  try {
+    // Try a simple read to test connection
+    var { ref: dbRef, get } = { ref: window._firebaseRef, get: window._firebaseGet };
+    if(!dbRef){ setStatus('db','warn','Partial','DB connected but limited'); return; }
+    setStatus('db','ok','Connected ✓');
+  } catch(e){
+    setStatus('db','err','Failed',e.message);
   }
 }
 
@@ -1666,6 +1882,16 @@ function initAdminPanel(){
     var inp=document.getElementById('key-'+k);
     if(inp&&APIKEYS[k]) inp.value=APIKEYS[k];
   });
+  
+  // Check status after init
+  setTimeout(function(){
+    checkAllStatus();
+    testDBConnection();
+  }, 1000);
+  
+  // Keep checking every 10 seconds
+  setInterval(checkAllStatus, 10000);
+  
   refreshDashboard();
   addLog('SYSTEM','Admin panel loaded');
 }
@@ -1777,6 +2003,35 @@ const db        = getDatabase(app);
 const firestore = getFirestore(app);
 const functions = getFunctions(app, 'asia-south1');
 
+// Expose globally
+window._firebaseDB   = db;
+window._firebaseRef  = ref;
+window._firebaseSet  = set;
+window._firebaseGet  = get;
+window._firebaseAuth = auth;
+
+// DB connection test
+try {
+  get(ref(db, '.info/connected')).then(function(snap){
+    if(snap.val()===true){
+      setStatus('db','ok','Connected ✓');
+    } else {
+      setStatus('db','warn','Offline mode','Internet check karo');
+    }
+  }).catch(function(e){
+    setStatus('db','err','Failed',e.message);
+  });
+} catch(e){ setStatus('db','err','Init failed',e.message); }
+
+// Listen to connection state
+onValue(ref(db,'.info/connected'), function(snap){
+  if(snap.val()===true){
+    setStatus('db','ok','Connected ✓');
+  } else {
+    setStatus('db','warn','Reconnecting...','Firebase DB se connection toot gaya');
+  }
+});
+
 // ══════════════════════════════════════
 // LOGIN SYSTEM
 // ══════════════════════════════════════
@@ -1886,16 +2141,41 @@ async function doFirebaseLogin() {
 }
 
 // Auth state monitor
+// Firebase sign in
+window.firebaseSignIn = async function(email, password) {
+  try {
+    var result = await signInWithEmailAndPassword(auth, email, password);
+    console.log('✅ Firebase login:', result.user.email);
+    return true;
+  } catch(e) {
+    var errMsg = '';
+    if(e.code==='auth/invalid-credential'||e.code==='auth/wrong-password') errMsg='Wrong email or password';
+    else if(e.code==='auth/user-not-found') errMsg='User not found in Firebase Auth';
+    else if(e.code==='auth/invalid-email')  errMsg='Invalid email format';
+    else if(e.code==='auth/too-many-requests') errMsg='Too many attempts, thodi der baad try karo';
+    else errMsg = e.code||e.message;
+    // Show in both places
+    var el1 = document.getElementById('al-err');
+    var el2 = document.getElementById('fb-login-msg');
+    var fullMsg = '❌ ' + errMsg;
+    if(el1) el1.textContent = fullMsg;
+    if(el2) el2.textContent = fullMsg;
+    setStatus('firebase','err','Login failed', errMsg);
+    console.error('Firebase:', e.code, errMsg);
+    return false;
+  }
+};
+
 onAuthStateChanged(auth, function(user) {
   if (user) {
-    // Login ho gaya — overlay hatao
-    var ov = document.getElementById('fb-login-overlay');
-    if (ov) ov.remove();
-    console.log('✅ Logged in as:', user.email);
-    onAdminLoggedIn(user);
+    console.log('✅ Firebase Auth:', user.email);
+    window._firebaseUser = user;
+    setStatus('firebase','ok', user.email.split('@')[0]+' ✓');
+    addLog('AUTH','Firebase: '+user.email);
   } else {
-    // Logout — login screen dikhao
-    showLoginOverlay();
+    window._firebaseUser = null;
+    setStatus('firebase','warn','Not signed in','Firebase Auth → Email/password se login nahi hua');
+    console.log('Firebase: no user session');
   }
 });
 
